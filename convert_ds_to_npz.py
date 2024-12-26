@@ -3,8 +3,7 @@ from time import time as t
 np.set_printoptions(precision=1)
 
 # Load the dataset
-npdata, mat_file = np.load('data/data_clean.npy'), 'data/data_clean.mat'
-# npdata, mat_file = np.load('data/data.npy', allow_pickle=True), 'data/data.mat'
+npdata = np.load('data/data_clean.npy')
 
 print(npdata.dtype) # show the keys
 # [('label', '<U10'), ('shot', '<i4'), ('time', '<f4'), ('data', '<f4', (92,)), ('data_err', '<f4', (92,)), ('target', '<f4', (21,)), ('emiss', '<f4', (110, 110)), ('x_emiss', '<f4', (110,)), ('y_emiss', '<f4', (110,)), ('majr', '<f4'), ('minr', '<f4'), ('b_tor', '<f4', (24,)), ('b_rad', '<f4', (24,)), ('phi_tor', '<f4', (24,))]
