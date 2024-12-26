@@ -43,9 +43,9 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 
 ######################################################################################################
 # dataset
-class SXRDataset(Dataset):
-    def __init__(self, ds_path, noise_level:float=0.0, random_remove:int=0):
-        ds = np.load(ds_path)
+class SXRSimDataset(Dataset):
+    def __init__(self, n, noise_level:float=0.0, random_remove:int=0):
+        ds = np.load(f'data/sxr_sim_ds_{n}.npz')
         # soft x-ray horizontal and vertical sensors
         self.sxr = to_tensor(np.concatenate([ds['sxrh'], ds['sxrv']], axis=-1), DEV)
         self.em = to_tensor(ds['emiss_lr'], DEV) # emissivities (NxN)
