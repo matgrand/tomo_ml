@@ -4,7 +4,10 @@ from torch.nn import Module, Linear, Conv2d, MaxPool2d, BatchNorm2d, ReLU, Seque
 import scipy.io as sio
 from time import time, sleep
 import numpy as np
-from numpy import pi as π
+from numpy import cos, sin, sqrt, hypot, arctan2
+from numpy.random import rand, randint, randn, uniform
+from numpy.linalg import norm, inv
+π = np.pi
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm
@@ -37,17 +40,14 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 
 
 
-
-
-
-
 ######################################################################################################
 # dataset
-class SXRSimDataset(Dataset):
+class SXRDataset(Dataset):
     def __init__(self, n, noise_level:float=0.0, random_remove:int=0):
         ds = np.load(f'data/sxr_sim_ds_{n}.npz')
         # soft x-ray horizontal and vertical sensors
-        self.sxr = to_tensor(np.concatenate([ds['sxrh'], ds['sxrv']], axis=-1), DEV)
+        self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)
+        assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
         self.em = to_tensor(ds['emiss_lr'], DEV) # emissivities (NxN)
         self.RR, self.ZZ, self.rr, self.zz = ds['RR'], ds['ZZ'], ds['rr'], ds['zz'] # grid coordinates
         self.noise_level = noise_level 
@@ -142,8 +142,8 @@ class SXRNetLinear1(Module): # 32x32
     def __init__(self, input_size):
         super(SXRNetLinear1, self).__init__()
         self.net = Sequential(
-            Linear(input_size, 64), Λ(),
-            Linear(64, 32*32), Λ()
+            Linear(input_size, 128), Λ(),
+            Linear(128, 32*32), Λ()
         )
     def forward(self, x): return self.net(x).view(-1, 1, 32, 32)
 
@@ -158,6 +158,13 @@ class SXRNetLinear2(Module): # 32x32
     def forward(self, x): return self.net(x).view(-1, 1, 32, 32)
 
 
+######################################################################################################
+# math functions
+def resize2d(x:np.ndarray, size=(128, 128)):
+    xt = to_tensor(x).view(1, 1, x.shape[0], x.shape[1])
+    xr = torch.nn.functional.interpolate(xt, size=size, mode='bilinear', align_corners=False, antialias=False)
+    xrn = xr.numpy().reshape(size)
+    return xrn
 
 
 
@@ -166,7 +173,8 @@ class SXRNetLinear2(Module): # 32x32
 
 ######################################################################################################
 # Plotting functions
-def plot_net_example(em_ds, em_pred, sxrv, sxrh, rr, zz, titl):
+def plot_net_example(em_ds, em_pred, sxrs:list, rr, zz, titl, labels=['vdi', 'vdc', 'vde', 'hor'], colors=['r','g','b','y']):
+    assert len(sxrs) == 4, f"wrong number of sxrs: {len(sxrs)}, should be [vdi, vdc, vde, hor]"
     fig, axs = plt.subplots(1, 5, figsize=(20, 4))
     bmin, bmax = np.min([em_ds, em_pred]), np.max([em_ds, em_pred]) # min max em
     blevels = np.linspace(bmin, bmax, 13, endpoint=True)
@@ -188,9 +196,8 @@ def plot_net_example(em_ds, em_pred, sxrv, sxrh, rr, zz, titl):
     fig.colorbar(im03, ax=axs[3])
     for ax in axs.flatten()[0:3]: ax.grid(False), ax.set_xticks([]), ax.set_yticks([]), ax.set_aspect("equal")
     axs[4].set_title("SXR")
-    # plot sxr vertical and horizontal sensors
-    axs[4].plot(sxrv, 'bs--', label="sxrv")
-    axs[4].plot(sxrh, 'rs--', label="sxrh")
+    # plot sxrs
+    for sxr, c, l in zip(sxrs, colors, labels): axs[4].plot(sxr, f'{c}s--', label=l)
     axs[4].legend()
     #suptitle
     plt.suptitle(f"SXR Tomography: {titl}")
