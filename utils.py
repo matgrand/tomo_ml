@@ -43,13 +43,13 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, noise_level:float=0.0, random_remove:int=0):
-        ds = np.load(f'data/sxr_sim_ds_{n}.npz')
+    def __init__(self, n, real=False, noise_level:float=0.0, random_remove:int=0):
+        ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_{n}.npz')
         # soft x-ray horizontal and vertical sensors
         self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)
         assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
         self.em = to_tensor(ds['emiss_lr'], DEV) # emissivities (NxN)
-        self.RR, self.ZZ, self.rr, self.zz = ds['RR'], ds['ZZ'], ds['rr'], ds['zz'] # grid coordinates
+        self.RRH, self.ZZH, self.RRL, self.ZZL = ds['RRH'], ds['ZZH'], ds['RRL'], ds['ZZL'] # grid coordinates
         self.noise_level = noise_level 
         self.random_remove = random_remove
         self.input_size = self.sxr.shape[-1]
