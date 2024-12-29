@@ -108,6 +108,33 @@ class SXRNetU32(Module): # 32x32
         x = self.dec(x)
         return x
     
+class SXRNetU32Big(Module): # 32x32
+    def __init__(self, input_size):
+        super(SXRNetU32Big, self).__init__()
+        self.enc = Sequential( # encoder
+            Linear(input_size, 32), Λ(),
+            Linear(32,32), Λ(),
+            Linear(32, 8*8), Λ()
+        )
+        c0, c1, c2, c3 = 4, 8, 16, 32
+        self.dec = Sequential( # decoder u-net style 8x8 -> 32x32
+            ConvTranspose2d(1, c0, kernel_size=2, stride=2), 
+            Conv2d(c0, c1, kernel_size=3, padding=0), Λ(),
+            Conv2d(c1, c2, kernel_size=3, padding=0), Λ(),
+            ConvTranspose2d(c2, c3, kernel_size=2, stride=2),
+            Conv2d(c3, c3, kernel_size=3, padding=0), Λ(),
+            Conv2d(c3, c2, kernel_size=3, padding=0), Λ(),
+            ConvTranspose2d(c2, c1, kernel_size=2, stride=2),
+            Conv2d(c1, c0, kernel_size=3, padding=0), Λ(),
+            Conv2d(c0, 2, kernel_size=3, padding=0), Λ(),
+            Conv2d(2, 1, kernel_size=5, padding=0),
+        )
+    def forward(self, x):
+        x = self.enc(x)
+        x = x.view(-1, 1, 8, 8)
+        x = self.dec(x)
+        return x
+    
 class SXRNetU64(Module): # 32x32
     def __init__(self, input_size):
         super(SXRNetU64, self).__init__()
@@ -166,6 +193,8 @@ def resize2d(x:np.ndarray, size=(128, 128)):
     xrn = xr.numpy().reshape(size)
     return xrn
 
+######################################################################################################
+# Simulated Tomography functions
 
 
 
