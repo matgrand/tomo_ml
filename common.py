@@ -27,8 +27,19 @@ RRL, ZZL = RRH[::KHRES, ::KHRES], ZZH[::KHRES, ::KHRES] # create low resolution 
 RZ = np.stack((RRH, ZZH), axis=-1) # create a grid of R and Z values
 FW = np.array([[RM+R_FW*np.cos(θ), ZM+R_FW*np.sin(θ)] for θ in np.linspace(0, 2*π, 100)]) # [m] first wall
 
+DS_NVDI, DS_NVDC, DS_NVDE, DS_NHOR = (17, 16, 16, 19) # number of rays for each SXR subdivision
+DS_SXR_SPLITS = (0, DS_NVDI, DS_NVDI+DS_NVDC, DS_NVDI+DS_NVDC+DS_NVDE, DS_NVDI+DS_NVDC+DS_NVDE+DS_NHOR) # splits for the SXR data
 
-# RFX SXR Parameters (all aproximated)
+
+## RFX SXR Parameters (all aproximated)
+
+# scaling factor for the SXR/EMISS data, only for training convergence purposes
+KS = 3000 
+
+# lognormal parameters for the max emissivity, fitted from the data (shape, loc, scale)
+MAX_EMISS_LOGNORM_PARAMS = (0.8669316172599792, -2.115141144810439, 171.3672332763672) 
+
+
 
 # RFX REAL CLEAN DATASET SXR (tot 92) SUBDIVISIONS (my data interpretation)
 VDI_INTERVAL = (32, 49) 

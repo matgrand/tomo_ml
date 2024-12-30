@@ -4,7 +4,7 @@ from torch.nn import Module, Linear, Conv2d, MaxPool2d, BatchNorm2d, ReLU, Seque
 import scipy.io as sio
 from time import time, sleep
 import numpy as np
-from numpy import cos, sin, sqrt, hypot, arctan2
+from numpy import cos, sin, sqrt, hypot, arctan2, abs
 from numpy.random import rand, randint, randn, uniform
 from numpy.linalg import norm, inv
 π = np.pi
@@ -43,15 +43,16 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, real=False, noise_level:float=0.0, random_remove:int=0):
+    def __init__(self, n, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0):
+        ''' n: number of samples, real: real or simulated data, noise_level: noise level, 
+            random_remove: random remove of sxrs, ks: scaling factor for emissivities
+        '''
         ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_{n}.npz')
-        # soft x-ray horizontal and vertical sensors
-        self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)
+        self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)/ks
         assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
-        self.em = to_tensor(ds['emiss_lr'], DEV) # emissivities (NxN)
+        self.em = to_tensor(ds['emiss_lr'], DEV)/ks # emissivities (NxN)
         self.RRH, self.ZZH, self.RRL, self.ZZL = ds['RRH'], ds['ZZH'], ds['RRL'], ds['ZZL'] # grid coordinates
-        self.noise_level = noise_level 
-        self.random_remove = random_remove
+        self.noise_level, self.random_remove, self.ks = noise_level, random_remove, ks
         self.input_size = self.sxr.shape[-1]
         assert len(self.em) == len(self.sxr), f'length mismatch: {len(self.em)} vs {len(self.sxr)}'
     def __len__(self): return len(self.sxr)
@@ -178,9 +179,9 @@ class SXRNetLinear2(Module): # 32x32
     def __init__(self, input_size):
         super(SXRNetLinear2, self).__init__()
         self.net = Sequential(
-            Linear(input_size, 16), Λ(),
-            Linear(16, 16), Λ(),
-            Linear(16, 32*32), Λ()
+            Linear(input_size, 64), Λ(),
+            Linear(64, 64), Λ(),
+            Linear(64, 32*32), Λ()
         )
     def forward(self, x): return self.net(x).view(-1, 1, 32, 32)
 
@@ -202,7 +203,7 @@ def plot_net_example(em_ds, em_pred, sxrs:list, rr, zz, titl, labels=['vdi', 'vd
     fig, axs = plt.subplots(1, 5, figsize=(20, 4))
     bmin, bmax = np.min([em_ds, em_pred]), np.max([em_ds, em_pred]) # min max em
     blevels = np.linspace(bmin, bmax, 13, endpoint=True)
-    em_mse = (em_ds - em_pred)**2
+    err_perc = 100*abs(em_ds - em_pred)/(bmax-bmin)
     im00 = axs[0].contourf(rr, zz, em_ds, blevels, cmap="inferno")
     axs[0].set_title("Actual")
     axs[0].set_aspect('equal')
@@ -215,8 +216,8 @@ def plot_net_example(em_ds, em_pred, sxrs:list, rr, zz, titl, labels=['vdi', 'vd
     axs[2].contour(rr, zz, em_pred, blevels, cmap="inferno")
     axs[2].set_title("Contours")
     fig.colorbar(im02, ax=axs[2])
-    im03 = axs[3].contourf(rr, zz, em_mse, cmap="inferno")
-    axs[3].set_title("MSE")
+    im03 = axs[3].contourf(rr, zz, err_perc, cmap="inferno")
+    axs[3].set_title("Error %")
     fig.colorbar(im03, ax=axs[3])
     for ax in axs.flatten()[0:3]: ax.grid(False), ax.set_xticks([]), ax.set_yticks([]), ax.set_aspect("equal")
     axs[4].set_title("SXR")
