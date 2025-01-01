@@ -1,7 +1,7 @@
 # file with common parameters for the project
 import numpy as np
 
-GRID_SIZE = 32 # size of the grid (32)
+GRID_SIZE = 55 # size of the grid (32)
 # SXRV_SIZE = 21 #2
 # SXRH_SIZE = 23 #23 
 INPUT_SIZE = 68 # vdi + vdc + vde + hor1

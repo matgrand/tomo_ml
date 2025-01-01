@@ -65,7 +65,6 @@ class SXRDataset(Dataset):
             x[idx_to_remove] = 0
         return x, self.em[idx]
     
-
 ######################################################################################################
 ## Network architectures
 
@@ -76,6 +75,12 @@ class Swish(Module): # swish activation function
         self.β = torch.nn.Parameter(torch.tensor(1.0), requires_grad=True)
     def forward(self, x): return x*torch.sigmoid(self.β*x)
 
+class Reshape(Module):
+    def __init__(self, *args):
+        super(Reshape, self).__init__()
+        self.shape = args
+    def forward(self, x): return x.view(self.shape)
+
 # activation function
 Λ = Swish
 # Λ = torch.nn.ReLU # bad
@@ -83,7 +88,7 @@ class Swish(Module): # swish activation function
 
 # architectures
 class SXRNetU32(Module): # 32x32
-    def __init__(self, input_size):
+    def __init__(self, input_size, output_size):
         super(SXRNetU32, self).__init__()
         self.enc = Sequential( # encoder
             Linear(input_size, 8), Λ(),
@@ -110,7 +115,7 @@ class SXRNetU32(Module): # 32x32
         return x
     
 class SXRNetU32Big(Module): # 32x32
-    def __init__(self, input_size):
+    def __init__(self, input_size, output_size):
         super(SXRNetU32Big, self).__init__()
         self.enc = Sequential( # encoder
             Linear(input_size, 32), Λ(),
@@ -137,7 +142,7 @@ class SXRNetU32Big(Module): # 32x32
         return x
     
 class SXRNetU64(Module): # 32x32
-    def __init__(self, input_size):
+    def __init__(self, input_size, output_size):
         super(SXRNetU64, self).__init__()
         self.enc = Sequential( # encoder
             Linear(input_size, 8), Λ(),
@@ -167,28 +172,31 @@ class SXRNetU64(Module): # 32x32
         return x
 
 class SXRNetLinear1(Module): # 32x32
-    def __init__(self, input_size):
+    def __init__(self, input_size, output_size):
         super(SXRNetLinear1, self).__init__()
         self.net = Sequential(
             Linear(input_size, 128), Λ(),
-            Linear(128, 32*32), Λ()
+            Linear(128, output_size*output_size), Λ(),
+            Reshape(-1, 1, output_size, output_size)
         )
-    def forward(self, x): return self.net(x).view(-1, 1, 32, 32)
+    def forward(self, x): return self.net(x)
 
 class SXRNetLinear2(Module): # 32x32
-    def __init__(self, input_size):
+    def __init__(self, input_size, output_size):
         super(SXRNetLinear2, self).__init__()
         self.net = Sequential(
             Linear(input_size, 64), Λ(),
             Linear(64, 64), Λ(),
-            Linear(64, 32*32), Λ()
+            Linear(64, output_size*output_size), Λ(),
+            Reshape(-1, 1, output_size, output_size)
         )
-    def forward(self, x): return self.net(x).view(-1, 1, 32, 32)
+    def forward(self, x): return self.net(x)
 
 
 ######################################################################################################
 # math functions
 def resize2d(x:np.ndarray, size=(128, 128)):
+    if x.shape == size: return x # already the right size
     xt = to_tensor(x).view(1, 1, x.shape[0], x.shape[1])
     xr = torch.nn.functional.interpolate(xt, size=size, mode='bilinear', align_corners=False, antialias=False)
     xrn = xr.numpy().reshape(size)
