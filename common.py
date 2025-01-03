@@ -1,7 +1,7 @@
 # file with common parameters for the project
 import numpy as np
 
-GRID_SIZE = 55 # size of the grid (32)
+GRID_SIZE = 64 #16 #55 # size of the grid (32)
 # SXRV_SIZE = 21 #2
 # SXRH_SIZE = 23 #23 
 INPUT_SIZE = 68 # vdi + vdc + vde + hor1
@@ -70,7 +70,7 @@ VDE_NRAYS = 19 # number of rays (paper)
 VDE_TO_KEEP = np.arange(1, 17) # rays to keep (data) 16 (could be 0->16, 2->18, 3->19)
 
 # HOR, SXR Horizontal, double
-HOR_SPAN_ANGLE = 1.5 #(1.2495650930032198 from paper)
+HOR_SPAN_ANGLE = 1.7 #(1.2495650930032198 from paper)
 HOR_START_ANGLE = π - HOR_SPAN_ANGLE/2
 HOR_PINHOLE_POS = (2.53, 0.0)
 HOR_NRAYS = 21 # number of rays (paper 24)

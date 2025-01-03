@@ -27,7 +27,7 @@ except:
     HAS_SCREEN = True
 os.makedirs(f"mg_data/{JOBID}", exist_ok=True)
 
-DEV = torch.device("cpu") # force cpu
+# DEV = torch.device("cpu") # force cpu
 
 print(f'DEV: {DEV}')
 
@@ -202,7 +202,10 @@ def resize2d(x:np.ndarray, size=(128, 128)):
     xrn = xr.numpy().reshape(size)
     return xrn
 
-
+######################################################################################################
+## SXR functions
+def calc_sxr(emiss):
+    pass
 
 ######################################################################################################
 # Plotting functions
