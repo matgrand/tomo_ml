@@ -1,7 +1,7 @@
 # file with common parameters for the project
 import numpy as np
 
-GRID_SIZE = 64 #16 #55 # size of the grid (32)
+GRID_SIZE = 55 #16 #55 # size of the grid (32)
 # SXRV_SIZE = 21 #2
 # SXRH_SIZE = 23 #23 
 INPUT_SIZE = 68 # vdi + vdc + vde + hor1
@@ -21,7 +21,7 @@ RM, ZM = 0.5*(R0+R1), 0.5*(Z0+Z1) # [m] grid center in the x/r and z direction
 R = np.linspace(R0, R1, RES)
 Z = np.linspace(Z0, Z1, RES)
 assert np.isclose(R1-R0, Z1-Z0), "grid must be square"
-δ = L/RES # [m] grid spacing
+GS = L/RES # [m] grid spacing
 RRH, ZZH = np.meshgrid(R, Z) # create a grid of R and Z values
 RRL, ZZL = RRH[::KHRES, ::KHRES], ZZH[::KHRES, ::KHRES] # create low resolution grid
 RZ = np.stack((RRH, ZZH), axis=-1) # create a grid of R and Z values
@@ -38,7 +38,6 @@ KS = 3000
 
 # lognormal parameters for the max emissivity, fitted from the data (shape, loc, scale)
 MAX_EMISS_LOGNORM_PARAMS = (0.8669316172599792, -2.115141144810439, 171.3672332763672) 
-
 
 
 # RFX REAL CLEAN DATASET SXR (tot 92) SUBDIVISIONS (my data interpretation)

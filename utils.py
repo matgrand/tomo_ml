@@ -27,7 +27,7 @@ except:
     HAS_SCREEN = True
 os.makedirs(f"mg_data/{JOBID}", exist_ok=True)
 
-# DEV = torch.device("cpu") # force cpu
+DEV = torch.device("cpu") # force cpu
 
 print(f'DEV: {DEV}')
 
@@ -43,11 +43,12 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0):
-        ''' n: number of samples, real: real or simulated data, noise_level: noise level, 
-            random_remove: random remove of sxrs, ks: scaling factor for emissivities
+    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0):
+        ''' n: number of samples, gs: grid_size, real: real or simulated data, 
+            noise_level: noise level, random_remove: random remove of sxrs, 
+            ks: scaling factor for emissivities
         '''
-        ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_{n}.npz')
+        ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_gs{gs}_n{n}.npz')
         self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)/ks
         assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
         self.em = to_tensor(ds['emiss_lr'], DEV)/ks # emissivities (NxN)
@@ -204,8 +205,38 @@ def resize2d(x:np.ndarray, size=(128, 128)):
 
 ######################################################################################################
 ## SXR functions
-def calc_sxr(emiss):
-    pass
+class RFX_SXR():
+    def __init__(self, gs=16): # gs: grid size
+        self.gs = gs
+        self.rfx_sxr = np.load(f'data/rfx_sxr_{gs}.npz', allow_pickle=True) 
+        self.vdi_n = len(self.rfx_sxr['vdi'])
+        self.vdc_n = len(self.rfx_sxr['vdc'])
+        self.vde_n = len(self.rfx_sxr['vde'])
+        self.hor_n = len(self.rfx_sxr['hor'])
+        self.fans = ['vdi', 'vdc', 'vde', 'hor']
+    def eval_on_fan(self, emiss, fan='vdi'):
+        ''' emiss: emissivity distribution (gs x gs) 
+            fan: vdi, vdc, vde, hor
+        '''
+        assert fan in self.fans, f"wrong fan name: {fan}"
+        assert emiss.shape == (self.gs, self.gs), f"wrong emissivity shape: {emiss.shape}, should be {(self.gs, self.gs)}"
+        f = self.rfx_sxr[fan]
+        sxr = np.zeros(len(f))
+        for i, (m, mi) in enumerate(f): # for each ray, m: mask, mi: mask indexes
+            sxr[i] = np.sum(emiss.reshape(-1)[mi]*m) # integrate the distribution along the ray (no GS)
+        return sxr
+    def eval_rfx(self, emiss):
+        ''' emiss: emissivity distribution (gs x gs) 
+            evaluate on all the fans
+        '''
+        sxr = np.zeros(self.vdi_n+self.vdc_n+self.vde_n+self.hor_n)
+        cum_idx = 0 # cumulative index
+        for fan in self.fans:
+            ni = len(self.rfx_sxr[fan])
+            sxr[cum_idx:cum_idx+ni] = self.eval_on_fan(emiss, fan)
+            cum_idx += ni
+        return sxr
+
 
 ######################################################################################################
 # Plotting functions
