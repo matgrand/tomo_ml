@@ -51,8 +51,8 @@ class SXRDataset(Dataset):
         ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_gs{gs}_n{n}.npz')
         self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)/ks
         assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
-        self.em = to_tensor(ds['emiss_lr'], DEV)/ks # emissivities (NxN)
-        self.RRH, self.ZZH, self.RRL, self.ZZL = ds['RRH'], ds['ZZH'], ds['RRL'], ds['ZZL'] # grid coordinates
+        self.em = to_tensor(ds['emiss'], DEV)/ks # emissivities (NxN)
+        self.RR, self.ZZ = ds['RR'], ds['ZZ'] # grid coordinates
         self.noise_level, self.random_remove, self.ks = noise_level, random_remove, ks
         self.input_size = self.sxr.shape[-1]
         assert len(self.em) == len(self.sxr), f'length mismatch: {len(self.em)} vs {len(self.sxr)}'
@@ -223,7 +223,7 @@ class RFX_SXR():
         f = self.rfx_sxr[fan]
         sxr = np.zeros(len(f))
         for i, (m, mi) in enumerate(f): # for each ray, m: mask, mi: mask indexes
-            sxr[i] = np.sum(emiss.reshape(-1)[mi]*m) # integrate the distribution along the ray (no GS)
+            sxr[i] = np.sum(emiss.reshape(-1)[mi]*m) # integrate the distribution along the ray (no GSPAC)
         return sxr
     def eval_rfx(self, emiss):
         ''' emiss: emissivity distribution (gs x gs) 

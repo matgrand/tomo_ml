@@ -1,16 +1,11 @@
 # file with common parameters for the project
 import numpy as np
-
-GRID_SIZE = 55 #16 #55 # size of the grid (32)
-# SXRV_SIZE = 21 #2
-# SXRH_SIZE = 23 #23 
-INPUT_SIZE = 68 # vdi + vdc + vde + hor1
-
 π = 3.141592653589793
 
-# Simulated data parameters 1.449199914932251,1.101600170135498
-KHRES = 2 # [#] multiplier for the high resolution of the grid
-RES = GRID_SIZE*KHRES # [#] high resolution of the grid in pixels (square grid)
+GSIZE = 55 #16 #55 # size of the grid (32)
+ISIZE = 68 # vdi + vdc + vde + hor1
+
+# Simulated data parameters 
 L = 1.101600170135498 # [m] length of the grid in the r/x direction (square grid)
 R0 = 1.449199914932251 # [m] grid start in the r/x direction
 R_FW = 0.4905 # [m] first wall radius
@@ -18,13 +13,13 @@ Z0 = -0.5508000254631042 # [m] grid start in the z/y direction
 R1, Z1 = R0+L, Z0+L # [m] grid ends in the r/x and z/y direction
 RM, ZM = 0.5*(R0+R1), 0.5*(Z0+Z1) # [m] grid center in the x/r and z direction
 # calculated constants
-R = np.linspace(R0, R1, RES)
-Z = np.linspace(Z0, Z1, RES)
+R = np.linspace(R0, R1, GSIZE)
+Z = np.linspace(Z0, Z1, GSIZE)
 assert np.isclose(R1-R0, Z1-Z0), "grid must be square"
-GS = L/RES # [m] grid spacing
-RRH, ZZH = np.meshgrid(R, Z) # create a grid of R and Z values
-RRL, ZZL = RRH[::KHRES, ::KHRES], ZZH[::KHRES, ::KHRES] # create low resolution grid
-RZ = np.stack((RRH, ZZH), axis=-1) # create a grid of R and Z values
+GSPAC = L/GSIZE # [m] grid spacing
+RR, ZZ = np.meshgrid(R, Z) # create a grid of R and Z values
+# RRL, ZZL = RR[::KHRES, ::KHRES], ZZ[::KHRES, ::KHRES] # create low resolution grid
+RZ = np.stack((RR, ZZ), axis=-1) # create a grid of R and Z values
 FW = np.array([[RM+R_FW*np.cos(θ), ZM+R_FW*np.sin(θ)] for θ in np.linspace(0, 2*π, 100)]) # [m] first wall
 
 DS_NVDI, DS_NVDC, DS_NVDE, DS_NHOR = (17, 16, 16, 19) # number of rays for each SXR subdivision
