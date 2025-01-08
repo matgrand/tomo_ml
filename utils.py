@@ -43,18 +43,25 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0):
+    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0, rescale=True, calc_sxr=False):
         ''' n: number of samples, gs: grid_size, real: real or simulated data, 
             noise_level: noise level, random_remove: random remove of sxrs, 
-            ks: scaling factor for emissivities
+            ks: scaling factor for emissivities, rescale: rescale the emissivities and sxr so that max em == 1, 
+            calc_sxr: recalculate the SXR from the emissivities
         '''
+        self.noise_level, self.random_remove, self.ks, self.gs = noise_level, random_remove, ks, gs
         ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_gs{gs}_n{n}.npz')
-        self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)/ks
-        assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
-        self.em = to_tensor(ds['emiss'], DEV)/ks # emissivities (NxN)
-        self.RR, self.ZZ = ds['RR'], ds['ZZ'] # grid coordinates
-        self.noise_level, self.random_remove, self.ks = noise_level, random_remove, ks
+        self.em = to_tensor(ds['emiss'], DEV)/ks # emissivities (nxNxN)
+        if calc_sxr: self.recalc_sxr() # recalculate the SXR from the emissivities
+        else: # load the SXR from the dataset
+            self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)/ks
+        if rescale: # rescale the emissivities and sxr so that max em == 1
+            self.scales = (self.em.view(-1, gs*gs).max(axis=1).values).view(-1, 1)
+            self.em = (self.em.view(-1, gs*gs)/self.scales).view(-1, gs, gs)
+            self.sxr /= self.scales # rescale the sxr
         self.input_size = self.sxr.shape[-1]
+        assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
+        self.RR, self.ZZ = ds['RR'], ds['ZZ'] # grid coordinates
         assert len(self.em) == len(self.sxr), f'length mismatch: {len(self.em)} vs {len(self.sxr)}'
     def __len__(self): return len(self.sxr)
     def __getitem__(self, idx):
@@ -62,10 +69,28 @@ class SXRDataset(Dataset):
         if self.noise_level > 0.0: 
             x = x + torch.randn_like(x) * self.noise_level * x.max()
         if self.random_remove > 0:
-            idx_to_remove = torch.randint(0, self.input_size, (self.random_remove,))
+            n_to_remove = torch.randint(1, self.random_remove, (1,))
+            idx_to_remove = torch.randint(0, self.input_size, (n_to_remove,))
             x[idx_to_remove] = 0
         return x, self.em[idx]
-    
+    def recalc_sxr(self):
+        rfx_sxr = RFX_SXR(self.gs)
+        self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in self.em.numpy()],DEV)
+    def show_examples(self, n_plot=10):
+        fig, axs = plt.subplots(2, n_plot, figsize=(3*n_plot, 5))
+        np.random.seed(42)
+        idxs = np.random.randint(0, len(self), n_plot)
+        for i, j in enumerate(idxs):
+            sxr, em = self[j][0].cpu().numpy().squeeze(), self[j][1].cpu().numpy()
+            axs[0,i].contourf(self.RR, self.ZZ, em, 100, cmap="inferno")
+            axs[0,i].axis("off")
+            axs[0,i].set_aspect("equal")
+            fig.colorbar(axs[0,i].contourf(self.RR, self.ZZ, em, 100, cmap="inferno"), ax=axs[0,i])
+            #plot sxr
+            axs[1,i].plot(sxr, 'rs')
+        plt.show() if HAS_SCREEN else plt.savefig(f"mg_data/{JOBID}/dataset.png")
+        plt.close()
+        return idxs
 ######################################################################################################
 ## Network architectures
 
@@ -206,7 +231,7 @@ def resize2d(x:np.ndarray, size=(128, 128)):
 ######################################################################################################
 ## SXR functions
 class RFX_SXR():
-    def __init__(self, gs=16): # gs: grid size
+    def __init__(self, gs=16, emiss=None): # gs: grid size
         self.gs = gs
         self.rfx_sxr = np.load(f'data/rfx_sxr_{gs}.npz', allow_pickle=True) 
         self.vdi_n = len(self.rfx_sxr['vdi'])
@@ -214,6 +239,7 @@ class RFX_SXR():
         self.vde_n = len(self.rfx_sxr['vde'])
         self.hor_n = len(self.rfx_sxr['hor'])
         self.fans = ['vdi', 'vdc', 'vde', 'hor']
+        if emiss is not None: return self.eval_rfx(emiss)
     def eval_on_fan(self, emiss, fan='vdi'):
         ''' emiss: emissivity distribution (gs x gs) 
             fan: vdi, vdc, vde, hor

@@ -29,7 +29,7 @@ DS_SXR_SPLITS = (0, DS_NVDI, DS_NVDI+DS_NVDC, DS_NVDI+DS_NVDC+DS_NVDE, DS_NVDI+D
 ## RFX SXR Parameters (all aproximated)
 
 # scaling factor for the SXR/EMISS data, only for training convergence purposes
-KS = 3000 
+KS = 1.0 
 
 # lognormal parameters for the max emissivity, fitted from the data (shape, loc, scale)
 MAX_EMISS_LOGNORM_PARAMS = (0.8669316172599792, -2.115141144810439, 171.3672332763672) 
