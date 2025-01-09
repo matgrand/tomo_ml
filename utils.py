@@ -43,18 +43,18 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0, rescale=True, calc_sxr=True):
+    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, rescale=True, calc_sxr=False):
         ''' n: number of samples, gs: grid_size, real: real or simulated data, 
             noise_level: noise level, random_remove: random remove of sxrs, 
-            ks: scaling factor for emissivities, rescale: rescale the emissivities and sxr so that max em == 1, 
+            rescale: rescale the emissivities and sxr so that max em == 1, 
             calc_sxr: recalculate the SXR from the emissivities
         '''
-        self.noise_level, self.random_remove, self.ks, self.gs = noise_level, random_remove, ks, gs
+        self.noise_level, self.random_remove, self.gs = noise_level, random_remove, gs
         ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_gs{gs}_n{n}.npz')
-        self.em = to_tensor(ds['emiss'], DEV)/ks # emissivities (nxNxN)
+        self.em = to_tensor(ds['emiss'], DEV) # emissivities (nxNxN)
         if calc_sxr: self.recalc_sxr() # recalculate the SXR from the emissivities
         else: # load the SXR from the dataset
-            self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)/ks
+            self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)
         if rescale: # rescale the emissivities and sxr so that max em == 1
             self.scales = (self.em.view(-1, gs*gs).max(axis=1).values).view(-1, 1)
             self.em = (self.em.view(-1, gs*gs)/self.scales).view(-1, gs, gs)
