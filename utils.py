@@ -43,7 +43,7 @@ os.system(f"cp train.py {SAVE_DIR}/train.py")
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0, rescale=True, calc_sxr=False):
+    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, ks=1.0, rescale=True, calc_sxr=True):
         ''' n: number of samples, gs: grid_size, real: real or simulated data, 
             noise_level: noise level, random_remove: random remove of sxrs, 
             ks: scaling factor for emissivities, rescale: rescale the emissivities and sxr so that max em == 1, 
@@ -75,7 +75,7 @@ class SXRDataset(Dataset):
         return x, self.em[idx]
     def recalc_sxr(self):
         rfx_sxr = RFX_SXR(self.gs)
-        self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in self.em.numpy()],DEV)
+        self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in self.em.cpu().numpy()],DEV)
     def show_examples(self, n_plot=10):
         fig, axs = plt.subplots(2, n_plot, figsize=(3*n_plot, 5))
         np.random.seed(42)
@@ -211,9 +211,9 @@ class SXRNetLinear2(Module): # 32x32
     def __init__(self, input_size, output_size):
         super(SXRNetLinear2, self).__init__()
         self.net = Sequential(
-            Linear(input_size, 64), Λ(),
-            Linear(64, 64), Λ(),
-            Linear(64, output_size*output_size), Λ(),
+            Linear(input_size, 128), Λ(),
+            Linear(128, 128), Λ(),
+            Linear(128, output_size*output_size), Λ(),
             Reshape(-1, 1, output_size, output_size)
         )
     def forward(self, x): return self.net(x)
