@@ -59,6 +59,12 @@ class SXRDataset(Dataset):
             self.scales = (self.em.view(-1, gs*gs).max(axis=1).values).view(-1, 1)
             self.em = (self.em.view(-1, gs*gs)/self.scales).view(-1, gs, gs)
             self.sxr /= self.scales # rescale the sxr
+            #normalize (works only on scaled data)
+            d = np.load(f'data/rfx_sxr_means_stds_{gs}.npz')
+            μs, Σs = to_tensor(d['means'], DEV), to_tensor(d['stds'], DEV)
+            assert len(μs) == len(Σs) == self.sxr.shape[-1], f"wrong means or stds shape: {len(μs)} vs {len(Σs)} vs {self.sxr.shape[-1]}"
+            self.sxr = (self.sxr - μs)/Σs # normalize the sxr
+
         self.input_size = self.sxr.shape[-1]
         assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
         self.RR, self.ZZ = ds['RR'], ds['ZZ'] # grid coordinates
@@ -95,7 +101,7 @@ class SXRDataset(Dataset):
 ## Network architectures
 
 # custom Swish activation function
-class Swish(Module): # swish activation function
+class Swish(Module): # swish activation functio
     def __init__(self): 
         super(Λ, self).__init__()
         self.β = torch.nn.Parameter(torch.tensor(1.0), requires_grad=True)
