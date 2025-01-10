@@ -38,12 +38,14 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 # copy the python training to the directory (for cluster) (for local, it fails silently)
 os.system(f"cp train.py {SAVE_DIR}/train.py")
 
-
+# set random seeds
+np.random.seed(42)
+torch.manual_seed(42)
 
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, rescale=True, calc_sxr=False):
+    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, rescale=True, calc_sxr=True):
         ''' n: number of samples, gs: grid_size, real: real or simulated data, 
             noise_level: noise level, random_remove: random remove of sxrs, 
             rescale: rescale the emissivities and sxr so that max em == 1, 
@@ -59,11 +61,12 @@ class SXRDataset(Dataset):
             self.scales = (self.em.view(-1, gs*gs).max(axis=1).values).view(-1, 1)
             self.em = (self.em.view(-1, gs*gs)/self.scales).view(-1, gs, gs)
             self.sxr /= self.scales # rescale the sxr
-            #normalize (works only on scaled data)
-            d = np.load(f'data/rfx_sxr_means_stds_{gs}.npz')
-            μs, Σs = to_tensor(d['means'], DEV), to_tensor(d['stds'], DEV)
-            assert len(μs) == len(Σs) == self.sxr.shape[-1], f"wrong means or stds shape: {len(μs)} vs {len(Σs)} vs {self.sxr.shape[-1]}"
-            self.sxr = (self.sxr - μs)/Σs # normalize the sxr
+            # #normalize (works only on scaled data)
+            # d = np.load(f'data/rfx_sxr_means_stds_{gs}.npz')
+            # μs, Σs = to_tensor(d['means'], DEV), to_tensor(d['stds'], DEV)
+            # assert len(μs) == len(Σs) == self.sxr.shape[-1], f"wrong means or stds shape: {len(μs)} vs {len(Σs)} vs {self.sxr.shape[-1]}"
+            # # self.sxr = (self.sxr - μs)/Σs # normalize the sxr
+            # self.sxr = self.sxr - μs # remove the mean
 
         self.input_size = self.sxr.shape[-1]
         assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
@@ -117,6 +120,7 @@ class Reshape(Module):
 Λ = Swish
 # Λ = torch.nn.ReLU # bad
 # Λ = torch.nn.Tanh # bad
+# Λ = torch.nn.Sigmoid
 
 # architectures
 class SXRNetU32(Module): # 32x32

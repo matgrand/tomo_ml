@@ -4,5 +4,6 @@
 - [v] Make synthetic SXR evaluation (line integration) easier, by loading the masks from a file, not recalculating them every time
 - [ ] Tune RFX parameters to get a closer to realistic SXR values
 - [ ] Get raw data
-- [ ] Normalize each of the inputs substracting the mean and dividing by the standard deviation, make an analysis of each input of each SXR (mean, std, min, max) and build a syhtnetic dataset sampling from the same distribution
+- [v] Normalize each of the inputs substracting the mean and dividing by the standard deviation. DONE: marginally better results 
+- [ ] make an analysis of each input of each SXR (mean, std, min, max) and build a syhtnetic dataset sampling from the same distribution
 - [ ] Small demo showcasing the ill posedness of the problem
