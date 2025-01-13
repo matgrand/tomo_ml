@@ -2,7 +2,7 @@
 import numpy as np
 π = 3.141592653589793
 
-GSIZE = 55 #16 #55 # size of the grid (32)
+GSIZE = 110 #16 #55 # size of the grid (32)
 ISIZE = 68 # vdi + vdc + vde + hor1
 
 # Simulated data parameters 

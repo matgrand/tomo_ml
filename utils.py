@@ -1,3 +1,5 @@
+from common import *
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.nn import Module, Linear, Conv2d, MaxPool2d, BatchNorm2d, ReLU, Sequential, ConvTranspose2d
@@ -45,7 +47,7 @@ torch.manual_seed(42)
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, rescale=True, calc_sxr=True):
+    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, rescale=True, calc_sxr=False):
         ''' n: number of samples, gs: grid_size, real: real or simulated data, 
             noise_level: noise level, random_remove: random remove of sxrs, 
             rescale: rescale the emissivities and sxr so that max em == 1, 
@@ -53,7 +55,7 @@ class SXRDataset(Dataset):
         '''
         self.noise_level, self.random_remove, self.gs = noise_level, random_remove, gs
         ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_gs{gs}_n{n}.npz')
-        self.em = to_tensor(ds['emiss'], DEV) # emissivities (nxNxN)
+        self.em = to_tensor(ds['emiss'], DEV).view(-1,gs,gs) # emissivities (nxNxN)
         if calc_sxr: self.recalc_sxr() # recalculate the SXR from the emissivities
         else: # load the SXR from the dataset
             self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)
@@ -84,7 +86,9 @@ class SXRDataset(Dataset):
         return x, self.em[idx]
     def recalc_sxr(self):
         rfx_sxr = RFX_SXR(self.gs)
-        self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in self.em.cpu().numpy()],DEV)
+        ems = self.em.cpu().numpy()
+        ems = tqdm(ems, desc="recalculating SXR", ncols=60) # progress bar
+        self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in ems], DEV)
     def show_examples(self, n_plot=10):
         fig, axs = plt.subplots(2, n_plot, figsize=(3*n_plot, 5))
         np.random.seed(42)
@@ -148,6 +152,7 @@ class SXRNetU32(Module): # 32x32
         x = self.enc(x)
         x = x.view(-1, 1, 8, 8)
         x = self.dec(x)
+        x = x.view(-1, 32, 32)
         return x
     
 class SXRNetU32Big(Module): # 32x32
@@ -175,9 +180,45 @@ class SXRNetU32Big(Module): # 32x32
         x = self.enc(x)
         x = x.view(-1, 1, 8, 8)
         x = self.dec(x)
+        x = x.view(-1, 32, 32)
         return x
     
-class SXRNetU64(Module): # 32x32
+class SXRNetU55(Module): # 55x55
+    def __init__(self, input_size, output_size):
+        super(SXRNetU55, self).__init__()
+        self.enc = Sequential( # encoder
+            Linear(input_size, 32), Λ(),
+            Linear(32,32), Λ(),
+            Linear(32, 16*16), Λ()
+        )
+        c0, c1, c2, c3 = 4, 8, 16, 32
+        self.dec = Sequential( # decoder u-net style 8x8 -> 55x55
+            ConvTranspose2d(1, c0, kernel_size=2, stride=2), 
+            Conv2d(c0, c0, kernel_size=3, padding=1), Λ(),
+            # Conv2d(c0, c0, kernel_size=3, padding=0), Λ(),
+            Conv2d(c0, c0, kernel_size=3, padding=0), Λ(),
+            ConvTranspose2d(c0, c1, kernel_size=2, stride=2),
+            Conv2d(c1, c1, kernel_size=3, padding=1), Λ(),
+            # Conv2d(c1, c1, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c1, c1, kernel_size=3, padding=0), Λ(),
+            # ConvTranspose2d(c1, c2, kernel_size=2, stride=2),
+            Conv2d(c1, c2, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c2, c2, kernel_size=3, padding=0), Λ(),
+            Conv2d(c2, 1, kernel_size=4, padding=0), Λ(),
+            # ConvTranspose2d(c2, c1, kernel_size=2, stride=2),
+            # Conv2d(c1, c1, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c1, c1, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c1, c0, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c3, 1, kernel_size=4, padding=0),
+        )
+    def forward(self, x):
+        x = self.enc(x)
+        x = x.view(-1, 1, 16, 16)
+        x = self.dec(x)
+        x = x.view(-1, 55, 55)
+        return x
+    
+class SXRNetU64(Module): # 64x64
     def __init__(self, input_size, output_size):
         super(SXRNetU64, self).__init__()
         self.enc = Sequential( # encoder
@@ -205,26 +246,27 @@ class SXRNetU64(Module): # 32x32
         x = self.enc(x)
         x = x.view(-1, 1, 8, 8)
         x = self.dec(x)
+        x = x.view(-1, 64, 64)
         return x
 
-class SXRNetLinear1(Module): # 32x32
+class SXRNetLinear1(Module): 
     def __init__(self, input_size, output_size):
         super(SXRNetLinear1, self).__init__()
         self.net = Sequential(
             Linear(input_size, 128), Λ(),
             Linear(128, output_size*output_size), Λ(),
-            Reshape(-1, 1, output_size, output_size)
+            Reshape(-1, output_size, output_size)
         )
     def forward(self, x): return self.net(x)
 
-class SXRNetLinear2(Module): # 32x32
+class SXRNetLinear2(Module): 
     def __init__(self, input_size, output_size):
         super(SXRNetLinear2, self).__init__()
         self.net = Sequential(
             Linear(input_size, 128), Λ(),
             Linear(128, 128), Λ(),
             Linear(128, output_size*output_size), Λ(),
-            Reshape(-1, 1, output_size, output_size)
+            Reshape(-1, output_size, output_size)
         )
     def forward(self, x): return self.net(x)
 
@@ -283,18 +325,26 @@ def plot_net_example(em_ds, em_pred, sxrs:list, rr, zz, titl, labels=['vdi', 'vd
     blevels = np.linspace(bmin, bmax, 13, endpoint=True)
     err_perc = 100*abs(em_ds - em_pred)/(bmax-bmin)
     im00 = axs[0].contourf(rr, zz, em_ds, blevels, cmap="inferno")
+    #plot FW
+    axs[0].plot(FW[:,0], FW[:,1], 'w', lw=1)
     axs[0].set_title("Actual")
     axs[0].set_aspect('equal')
     axs[0].set_ylabel("em")
     fig.colorbar(im00, ax=axs[0]) 
     im01 = axs[1].contourf(rr, zz, em_pred, blevels, cmap="inferno")
+    axs[1].plot(FW[:,0], FW[:,1], 'w', lw=1)
+    axs[1].set_aspect('equal')
     axs[1].set_title("Predicted")
     fig.colorbar(im01, ax=axs[1])
     im02 = axs[2].contour(rr, zz, em_ds, blevels, linestyles='dashed', cmap="inferno")
     axs[2].contour(rr, zz, em_pred, blevels, cmap="inferno")
+    axs[2].plot(FW[:,0], FW[:,1], 'w', lw=1)
+    axs[2].set_aspect('equal')
     axs[2].set_title("Contours")
     fig.colorbar(im02, ax=axs[2])
     im03 = axs[3].contourf(rr, zz, err_perc, cmap="inferno")
+    axs[3].plot(FW[:,0], FW[:,1], 'w', lw=1)
+    axs[3].set_aspect('equal')
     axs[3].set_title("Error %")
     fig.colorbar(im03, ax=axs[3])
     for ax in axs.flatten()[0:3]: ax.grid(False), ax.set_xticks([]), ax.set_yticks([]), ax.set_aspect("equal")
