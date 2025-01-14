@@ -7,3 +7,4 @@
 - [v] Normalize each of the inputs substracting the mean and dividing by the standard deviation. DONE: marginally better results 
 - [ ] make an analysis of each input of each SXR (mean, std, min, max) and build a syhtnetic dataset sampling from the same distribution
 - [ ] Small demo showcasing the ill posedness of the problem
+- [ ] Test input reconstruction, map into a 1-normed latent space, and then back to the input space, (cosine similarity?). Or look for something that can model means/stds

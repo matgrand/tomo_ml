@@ -47,7 +47,7 @@ torch.manual_seed(42)
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, rescale=True, calc_sxr=False):
+    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, calc_sxr=False, rescale=True):
         ''' n: number of samples, gs: grid_size, real: real or simulated data, 
             noise_level: noise level, random_remove: random remove of sxrs, 
             rescale: rescale the emissivities and sxr so that max em == 1, 
@@ -192,7 +192,7 @@ class SXRNetU55(Module): # 55x55
             Linear(32, 16*16), Λ()
         )
         c0, c1, c2, c3 = 4, 8, 16, 32
-        self.dec = Sequential( # decoder u-net style 8x8 -> 55x55
+        self.dec = Sequential( # decoder u-net style 16x16 -> 55x55
             ConvTranspose2d(1, c0, kernel_size=2, stride=2), 
             Conv2d(c0, c0, kernel_size=3, padding=1), Λ(),
             # Conv2d(c0, c0, kernel_size=3, padding=0), Λ(),
@@ -216,6 +216,36 @@ class SXRNetU55(Module): # 55x55
         x = x.view(-1, 1, 16, 16)
         x = self.dec(x)
         x = x.view(-1, 55, 55)
+        return x
+    
+class SXRNetU110(Module): # 55x55
+    def __init__(self, input_size, output_size):
+        super(SXRNetU110, self).__init__()
+        self.enc = Sequential( # encoder
+            Linear(input_size, 32), Λ(),
+            Linear(32,32), Λ(),
+            Linear(32, 16*16), Λ()
+        )
+        c0, c1, c2, c3 = 4, 8, 16, 32
+        self.dec = Sequential( # decoder u-net style 16x16 -> 110x110
+            ConvTranspose2d(1, c0, kernel_size=2, stride=2), 
+            Conv2d(c0, c0, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c0, c0, kernel_size=3, padding=0), Λ(),
+            ConvTranspose2d(c0, c1, kernel_size=2, stride=2),
+            Conv2d(c1, c1, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c1, c1, kernel_size=3, padding=0), Λ(),
+            ConvTranspose2d(c1, c2, kernel_size=2, stride=2),
+            Conv2d(c2, c2, kernel_size=3, padding=0), Λ(),
+            Conv2d(c2, c1, kernel_size=3, padding=0), Λ(),
+            Conv2d(c1, 1, kernel_size=3, padding=0), Λ(),
+            # Conv2d(c1, 1, kernel_size=3, padding=0), Λ(),
+
+        )
+    def forward(self, x):
+        x = self.enc(x)
+        x = x.view(-1, 1, 16, 16)
+        x = self.dec(x)
+        x = x.view(-1, 110, 110)
         return x
     
 class SXRNetU64(Module): # 64x64
