@@ -1,4 +1,4 @@
-from common import *
+from common import * # import all the common parameters
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -312,38 +312,116 @@ def resize2d(x:np.ndarray, size=(128, 128)):
 
 ######################################################################################################
 ## SXR functions
+# helper functions
+def wrap_angle(α): return np.arctan2(np.sin(α), np.cos(α))
+
+def gaussian(v, μ=np.array([R0+L/2, Z0+L/2]), Σ=np.array([[L/4,0],[0,L/4]]), polar=False):
+    rshape = v.shape[:-1] # save the original shape
+    v = v.reshape(-1, 2) # flatten the input to 2D
+    d = v-μ # difference vector
+    if polar: d[:,1] = wrap_angle(d[:,1]) 
+    g = np.exp(-0.5*np.sum(d @ inv(Σ) * d, axis=-1)) # gaussian formula
+    r = g.reshape(rshape) # return the result in the original shape
+    return r
+
+def create_line(c, θ, n=20*GSIZE): # create a line from a center and an absolute angle
+    cθ, sθ = cos(θ), sin(θ)
+    if np.abs(cθ) > np.abs(sθ): # less than 45 degrees
+        x = np.linspace(R0-GSPAC/2, R1+GSPAC/2, n)
+        y = (sθ/cθ)*x + (c[1] - (sθ/cθ)*c[0])
+    else: # more than 45 degrees
+        y = np.linspace(Z0-GSPAC/2, Z1+GSPAC/2, n)
+        x = (cθ/sθ)*y + (c[0] - (cθ/sθ)*c[1])
+    # keep only points inside the grid/first wall
+    # idxs = (R0-GSPAC/2 <= x) & (x <= R1+GSPAC/2) & (Z0-GSPAC/2 <= y) & (y <= Z1+GSPAC/2) # inside grid
+    idxs = (x-RM)**2 + (y-ZM)**2 <= (R_FW+GSPAC/2)**2 # inside first wall #TODO: not exact Radius FW < L/2
+    # if sum(idxs) == 0: print(f'Warning: line outside: c={c}, θ={θ:.2f}')
+    return np.stack((x[idxs], y[idxs]), axis=-1)
+
+def line_mask(c, θn, θl, n=11*GSIZE): # mask for a line, c=center, θn=normal angle, θl=angle of the line wrt the normal
+    lin = create_line(c, θn+θl, n)
+    # mask = np.zeros((GSIZE, GSIZE)).reshape(-1)
+    # grid = RZ.copy().reshape(-1, 2)
+    # # for l in lin: mask[np.argmin(norm(grid-l, axis=-1))] += GSIZE/n # easy way
+    # for l in lin: # more accurate way (still extremely inefficient)
+    #     d = norm(grid-l, axis=-1) # get the distances
+    #     idxs = np.argsort(d)[:4] #get the n closest points
+    #     d = d[idxs] #get the  distances
+    #     w = 1/d #get the weights
+    #     w /= w.sum() #normalize the weights
+    #     mask1[idxs] += w*GSIZE/n #add the weights to the mask
+    # efficient way
+    mask = np.zeros((GSIZE, GSIZE))
+    for l in lin:
+        rl, zl = l # line point
+        ir1, ir2 = np.argsort((R-rl)**2)[:2] # closest idxs in R
+        iz1, iz2 = np.argsort((Z-zl)**2)[:2] # closest idxs in Z
+        dr1, dr2 = (R[ir1]-rl)**2, (R[ir2]-rl)**2 # distances
+        dz1, dz2 = (Z[iz1]-zl)**2, (Z[iz2]-zl)**2 # distances
+        wr2, wz2, wr1, wz1 = dr1/(dr1+dr2), dz1/(dz1+dz2), dr2/(dr1+dr2), dz2/(dz1+dz2) # weights
+        w11,w12,w21,w22 = wr1*wz1, wr1*wz2, wr2*wz1, wr2*wz2
+        assert np.isclose(w11+w12+w21+w22, 1), f'{w11:.2f}, {w12:.2f}, {w21:.2f}, {w22:.2f}, sum={w11+w12+w21+w22:.5f}'
+        mask[iz1, ir1] += w11*GSIZE/n
+        mask[iz1, ir2] += w12*GSIZE/n
+        mask[iz2, ir1] += w21*GSIZE/n
+        mask[iz2, ir2] += w22*GSIZE/n
+    mask = mask.reshape(-1)
+    mask_idxs = np.where(mask > 0)[0]
+    mask = mask[mask_idxs]
+    mask *= cos(θl)#**2 # the inclination of the line reduces the mask by cos(θl) #TODO: check if this is correct
+    mask *= GSPAC # multiply by the grid spacing
+    return mask, mask_idxs
+
+# function to create a RFX fan of rays
+def create_rfx_fan(nrays, start_angle, span_angle, pinhole_position, idxs_to_keep, ret_all=False):
+    α_normal = start_angle+span_angle/2 # normal incidence angle of the fan
+    αs_rays = np.linspace(start_angle, start_angle+span_angle, nrays) # absolutre angles of the rays
+    αs_rays = αs_rays[idxs_to_keep] # keep only the rays specified by idxs_to_keep
+    αs_incidence = αs_rays - α_normal # angles of incidence wrt the normal
+    rays = [create_line(pinhole_position, αr) for αr in αs_rays]
+    fan = [line_mask(pinhole_position, α_normal, αi) for αi in αs_incidence]
+    if ret_all: return rays, fan, αs_incidence
+    else: return fan
+
+def eval_rfx_sxr(fan, emiss):
+    ''' fan: fan of rays [(mask, mask_idxs), ...] emiss: emissivity distribution (gs x gs) 
+        evaluate the SXR for a fan of rays
+    '''
+    sxr = np.zeros(len(fan))
+    for i, (m, mi) in enumerate(fan): # for each ray, m: mask, mi: mask indexes
+        sxr[i] = np.sum(emiss.reshape(-1)[mi]*m) # integrate the distribution along the ray (no GSPAC)
+    return sxr
+
 class RFX_SXR():
-    def __init__(self, gs=16, emiss=None): # gs: grid size
+    def __init__(self, gs=GSIZE, emiss=None): # gs: grid size
         self.gs = gs
         self.rfx_sxr = np.load(f'data/rfx_sxr_{gs}.npz', allow_pickle=True) 
         self.vdi_n = len(self.rfx_sxr['vdi'])
         self.vdc_n = len(self.rfx_sxr['vdc'])
         self.vde_n = len(self.rfx_sxr['vde'])
         self.hor_n = len(self.rfx_sxr['hor'])
-        self.fans = ['vdi', 'vdc', 'vde', 'hor']
+        self.fan_names = ['vdi', 'vdc', 'vde', 'hor']
         if emiss is not None: return self.eval_rfx(emiss)
-    def eval_on_fan(self, emiss, fan='vdi'):
+    def eval_on_fan(self, emiss, fan_name='vdi'):
         ''' emiss: emissivity distribution (gs x gs) 
             fan: vdi, vdc, vde, hor
         '''
-        assert fan in self.fans, f"wrong fan name: {fan}"
+        assert fan_name in self.fan_names, f"wrong fan name: {fan_name}"
         assert emiss.shape == (self.gs, self.gs), f"wrong emissivity shape: {emiss.shape}, should be {(self.gs, self.gs)}"
-        f = self.rfx_sxr[fan]
-        sxr = np.zeros(len(f))
-        for i, (m, mi) in enumerate(f): # for each ray, m: mask, mi: mask indexes
-            sxr[i] = np.sum(emiss.reshape(-1)[mi]*m) # integrate the distribution along the ray (no GSPAC)
-        return sxr
+        f = self.rfx_sxr[fan_name]
+        return eval_rfx_sxr(f, emiss)
     def eval_rfx(self, emiss):
         ''' emiss: emissivity distribution (gs x gs) 
             evaluate on all the fans
         '''
         sxr = np.zeros(self.vdi_n+self.vdc_n+self.vde_n+self.hor_n)
         cum_idx = 0 # cumulative index
-        for fan in self.fans:
+        for fan in self.fan_names:
             ni = len(self.rfx_sxr[fan])
             sxr[cum_idx:cum_idx+ni] = self.eval_on_fan(emiss, fan)
             cum_idx += ni
         return sxr
+
 
 
 ######################################################################################################
