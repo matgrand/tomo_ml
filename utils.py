@@ -6,7 +6,7 @@ from torch.nn import Module, Linear, Conv2d, MaxPool2d, BatchNorm2d, ReLU, Seque
 import scipy.io as sio
 from time import time, sleep
 import numpy as np
-from numpy import cos, sin, sqrt, hypot, arctan2, abs
+from numpy import cos, sin, sqrt, hypot, arctan2, abs, log
 from numpy.random import rand, randint, randn, uniform
 from numpy.linalg import norm, inv
 π = np.pi

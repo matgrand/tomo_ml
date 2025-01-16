@@ -41,28 +41,28 @@ HOR1_INTERVAL = (49, 68)
 HOR2_INTERVAL = (68, 92)
 
 # VDI, SXR Vertical Internal 
-VDI_SPAN_ANGLE = 0.32004687510760094
+VDI_SPAN_ANGLE = 0.32004687510760094 + 0.0349 
 VDI_START_ANGLE = π/2 - VDI_SPAN_ANGLE/2
-VDI_PINHOLE_POS = (1.72, -0.73) 
+VDI_PINHOLE_POS = (1.72 + 0.01, -0.73 +0.01) 
 VDI_NRAYS = 19 # number of rays (paper)
 VDI_TO_KEEP = np.arange(1, 18) # rays to keep (data) 17 (could be 0->17, 2->19) #
 
 # VDC, SXR Vertical Central
-VDC_SPAN_ANGLE = 0.7859524793194145
+VDC_SPAN_ANGLE = 0.7859524793194145 -0.0175 -0.0175
 VDC_START_ANGLE = π/2 - VDC_SPAN_ANGLE/2
-VDC_PINHOLE_POS = (2.0, -0.64) 
+VDC_PINHOLE_POS = (2.0-0.01+0.0057, -0.64 +0.01-0.0057) 
 VDC_NRAYS = 19 # number of rays (paper)
 VDC_TO_KEEP = np.arange(2, 18) # rays to keep (data) 16 (could be 2->18)
 
 # VDE, SXR Vertical External
-VDE_SPAN_ANGLE = 0.9004511925214301
+VDE_SPAN_ANGLE = 0.9004511925214301 -0.0524 -0.0873 -0.0175
 VDE_START_ANGLE = π/2 - VDE_SPAN_ANGLE/2
-VDE_PINHOLE_POS = (2.27, -0.46) 
+VDE_PINHOLE_POS = (2.27 -0.02, -0.46-0.1-0.015) 
 VDE_NRAYS = 19 # number of rays (paper)
 VDE_TO_KEEP = np.arange(1, 17) # rays to keep (data) 16 (could be 0->16, 2->18, 3->19)
 
 # HOR, SXR Horizontal, double
-HOR_SPAN_ANGLE = 1.7 #(1.2495650930032198 from paper)
+HOR_SPAN_ANGLE = 1.7 -0.0175
 HOR_START_ANGLE = π - HOR_SPAN_ANGLE/2
 HOR_PINHOLE_POS = (2.53, 0.0)
 HOR_NRAYS = 21 # number of rays (paper 24)
