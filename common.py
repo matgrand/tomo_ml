@@ -50,7 +50,7 @@ VDI_TO_KEEP = np.arange(1, 18) # rays to keep (data) 17 (could be 0->17, 2->19) 
 # VDC, SXR Vertical Central
 VDC_SPAN_ANGLE = 0.7859524793194145 -0.0175 -0.0175
 VDC_START_ANGLE = π/2 - VDC_SPAN_ANGLE/2
-VDC_PINHOLE_POS = (2.0-0.01+0.0057, -0.64 +0.01-0.0057) 
+VDC_PINHOLE_POS = (2.0, -0.64 +0.01-0.0057)  #(2.0-0.01+0.0057, -0.64 +0.01-0.0057) 
 VDC_NRAYS = 19 # number of rays (paper)
 VDC_TO_KEEP = np.arange(2, 18) # rays to keep (data) 16 (could be 2->18)
 

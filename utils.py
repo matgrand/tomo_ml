@@ -86,10 +86,8 @@ class SXRDataset(Dataset):
         return x, self.em[idx]
     def recalc_sxr(self):
         ems = self.em.cpu().numpy()
-        # ems = tqdm(ems, desc="recalculating SXR", ncols=60) # progress bar
-        # self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in ems], DEV)
-        to_conc = [eval_rfx_sxrs()]
-        self.sxr = to_tensor(eval_rfx_sxrs())
+        to_conc = [eval_rfx_sxrs(create_default_rfx_fan(n), ems) for n in RFX_SXR_NAMES]
+        self.sxr = to_tensor(np.concatenate(to_conc, axis=-1), DEV)
     def show_examples(self, n_plot=10):
         fig, axs = plt.subplots(2, n_plot, figsize=(3*n_plot, 5))
         np.random.seed(42)
@@ -339,19 +337,9 @@ def create_line(c, θ, n=20*GSIZE): # create a line from a center and an absolut
     # if sum(idxs) == 0: print(f'Warning: line outside: c={c}, θ={θ:.2f}')
     return np.stack((x[idxs], y[idxs]), axis=-1)
 
-def line_mask(c, θn, θl, n=11*GSIZE): # mask for a line, c=center, θn=normal angle, θl=angle of the line wrt the normal
+
+def line_mask(c, θn, θl, n=3*GSIZE): # mask for a line, c=center, θn=normal angle, θl=angle of the line wrt the normal
     lin = create_line(c, θn+θl, n)
-    # mask = np.zeros((GSIZE, GSIZE)).reshape(-1)
-    # grid = RZ.copy().reshape(-1, 2)
-    # # for l in lin: mask[np.argmin(norm(grid-l, axis=-1))] += GSIZE/n # easy way
-    # for l in lin: # more accurate way (still extremely inefficient)
-    #     d = norm(grid-l, axis=-1) # get the distances
-    #     idxs = np.argsort(d)[:4] #get the n closest points
-    #     d = d[idxs] #get the  distances
-    #     w = 1/d #get the weights
-    #     w /= w.sum() #normalize the weights
-    #     mask1[idxs] += w*GSIZE/n #add the weights to the mask
-    # efficient way
     mask = np.zeros((GSIZE, GSIZE))
     for l in lin:
         rl, zl = l # line point
@@ -366,6 +354,16 @@ def line_mask(c, θn, θl, n=11*GSIZE): # mask for a line, c=center, θn=normal 
         mask[iz1, ir2] += w12*GSIZE/n
         mask[iz2, ir1] += w21*GSIZE/n
         mask[iz2, ir2] += w22*GSIZE/n
+
+    # plt.figure(figsize=(8,8))
+    # plt.scatter(RR, ZZ, c=mask, s=8)
+    # plt.plot(lin[:,0], lin[:,1], 'r')
+    # plt.plot(FW[:,0], FW[:,1], 'w')
+    # plt.axis('equal')
+    # plt.colorbar()
+    # plt.show()
+    # plt.close()
+
     mask = mask.reshape(-1)
     mask_idxs = np.where(mask > 0)[0]
     mask = mask[mask_idxs]
