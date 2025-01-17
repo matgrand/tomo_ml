@@ -71,6 +71,8 @@ HOR1_TO_KEEP = np.arange(2, 21) # rays to keep (data) 19 (may be different)
 #HOR2_TO_KEEP = np.arange(0, 24) # rays to keep (data) all of them, 24 # NOTE: impossible with 21 rays, ignore HOR2
 
 RFX_SXR_NAMES = ("VDI", "VDC", "VDE", "HOR")
+RFX_SXR_NAMES_2_IDXS = {"VDI":0, "VDC":1, "VDE":2, "HOR":3}
+RFX_SXR_IDXS_2_NAMES = {0:"VDI", 1:"VDC", 2:"VDE", 3:"HOR"}
 RFX_SXR_COLORS = ('b', 'g', 'r', 'y')
 RFX_SXR_INTERVALS = (VDI_INTERVAL, VDC_INTERVAL, VDE_INTERVAL, HOR1_INTERVAL)
 RFX_SXR_NRAYS = (VDI_NRAYS, VDC_NRAYS, VDE_NRAYS, HOR_NRAYS)

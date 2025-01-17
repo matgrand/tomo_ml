@@ -85,10 +85,11 @@ class SXRDataset(Dataset):
             x[idx_to_remove] = 0
         return x, self.em[idx]
     def recalc_sxr(self):
-        rfx_sxr = RFX_SXR(self.gs)
         ems = self.em.cpu().numpy()
-        ems = tqdm(ems, desc="recalculating SXR", ncols=60) # progress bar
-        self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in ems], DEV)
+        # ems = tqdm(ems, desc="recalculating SXR", ncols=60) # progress bar
+        # self.sxr = to_tensor([rfx_sxr.eval_rfx(em) for em in ems], DEV)
+        to_conc = [eval_rfx_sxrs()]
+        self.sxr = to_tensor(eval_rfx_sxrs())
     def show_examples(self, n_plot=10):
         fig, axs = plt.subplots(2, n_plot, figsize=(3*n_plot, 5))
         np.random.seed(42)
@@ -383,24 +384,38 @@ def create_rfx_fan(nrays, start_angle, span_angle, pinhole_position, idxs_to_kee
     if ret_all: return rays, fan, αs_incidence
     else: return fan
 
+def create_default_rfx_fan(name='VDI', ret_all=False):
+    assert name in RFX_SXR_NAMES, f"wrong fan name: {name}, should be in {RFX_SXR_NAMES}"
+    i = RFX_SXR_NAMES_2_IDXS[name]
+    return create_rfx_fan(RFX_SXR_NRAYS[i], RFX_SXR_STARTS[i], RFX_SXR_SPANS[i], RFX_SXR_PINHOLES[i], RFX_SXR_TO_KEEP[i], ret_all)
+
+
 def eval_rfx_sxr(fan, emiss):
     ''' fan: fan of rays [(mask, mask_idxs), ...] emiss: emissivity distribution (gs x gs) 
         evaluate the SXR for a fan of rays
     '''
-    sxr = np.zeros(len(fan))
+    return eval_rfx_sxrs(fan, emiss.reshape(1, GSIZE, GSIZE)).reshape(len(fan))
+
+def eval_rfx_sxrs(fan, emisss:np.ndarray):
+    ''' fan: fan of rays [(mask, mask_idxs), ...] emisss: emissivity distributions (n x gs x gs) 
+        evaluate the SXR for a fan of rays for a batch of emissivities
+    '''
+    assert emisss.shape[1:] == (GSIZE, GSIZE), f"wrong emissivity shape: {emisss.shape}, should be {(GSIZE, GSIZE)}"
+    sxrs = np.zeros((len(emisss), len(fan)))
     for i, (m, mi) in enumerate(fan): # for each ray, m: mask, mi: mask indexes
-        sxr[i] = np.sum(emiss.reshape(-1)[mi]*m) # integrate the distribution along the ray (no GSPAC)
-    return sxr
+        ems_masked = emisss.reshape(len(emisss), GSIZE*GSIZE)[:,mi] # mask the emissivity
+        sxrs[:,i] = np.sum(ems_masked*m, axis=-1)
+    return sxrs
 
 class RFX_SXR():
     def __init__(self, gs=GSIZE, emiss=None): # gs: grid size
         self.gs = gs
-        self.rfx_sxr = np.load(f'data/rfx_sxr_{gs}.npz', allow_pickle=True) 
+        self.fan_names = ['vdi', 'vdc', 'vde', 'hor']
+        self.rfx_sxr = {self.fan_names[i]:create_rfx_fan(RFX_SXR_NRAYS[i], RFX_SXR_STARTS[i], RFX_SXR_SPANS[i], RFX_SXR_PINHOLES[i], RFX_SXR_TO_KEEP[i]) for i in range(4)}
         self.vdi_n = len(self.rfx_sxr['vdi'])
         self.vdc_n = len(self.rfx_sxr['vdc'])
         self.vde_n = len(self.rfx_sxr['vde'])
         self.hor_n = len(self.rfx_sxr['hor'])
-        self.fan_names = ['vdi', 'vdc', 'vde', 'hor']
         if emiss is not None: return self.eval_rfx(emiss)
     def eval_on_fan(self, emiss, fan_name='vdi'):
         ''' emiss: emissivity distribution (gs x gs) 
