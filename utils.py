@@ -56,9 +56,12 @@ class SXRDataset(Dataset):
         self.noise_level, self.random_remove, self.gs = noise_level, random_remove, gs
         ds = np.load(f'data/sxr_{"real" if real else "sim"}_ds_gs{gs}_n{n}.npz')
         self.em = to_tensor(ds['emiss'], DEV).view(-1,gs,gs) # emissivities (nxNxN)
-        if calc_sxr: self.recalc_sxr() # recalculate the SXR from the emissivities
-        else: # load the SXR from the dataset
-            self.sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV)
+        self.or_sxr = to_tensor(np.concatenate([ds['vdi'], ds['vdc'], ds['vde'], ds['hor']], axis=-1), DEV) # sxr from data
+        if calc_sxr: # recalculate the SXR from the emissivities
+            ems = self.em.cpu().numpy() # emissivities
+            to_conc = [eval_rfx_sxrs(create_default_rfx_fan(n), ems) for n in RFX_SXR_NAMES]
+            self.sxr = to_tensor(np.concatenate(to_conc, axis=-1), DEV)
+        else: self.sxr = self.or_sxr.clone() # use the original SXR
         if rescale: # rescale the emissivities and sxr so that max em == 1
             self.scales = (self.em.view(-1, gs*gs).max(axis=1).values).view(-1, 1)
             self.em = (self.em.view(-1, gs*gs)/self.scales).view(-1, gs, gs)
@@ -84,10 +87,6 @@ class SXRDataset(Dataset):
             idx_to_remove = torch.randint(0, self.input_size, (n_to_remove,))
             x[idx_to_remove] = 0
         return x, self.em[idx]
-    def recalc_sxr(self):
-        ems = self.em.cpu().numpy()
-        to_conc = [eval_rfx_sxrs(create_default_rfx_fan(n), ems) for n in RFX_SXR_NAMES]
-        self.sxr = to_tensor(np.concatenate(to_conc, axis=-1), DEV)
     def show_examples(self, n_plot=10):
         fig, axs = plt.subplots(2, n_plot, figsize=(3*n_plot, 5))
         np.random.seed(42)
@@ -299,6 +298,25 @@ class SXRNetLinear2(Module):
         )
     def forward(self, x): return self.net(x)
 
+class SXRNetLinCos(Module):
+    def __init__(self, input_size, output_size, latent_size=16):
+        super(SXRNetLinCos, self).__init__()
+        self.enc = Sequential( # encoder
+            Linear(input_size, 64), Λ(),
+            # Linear(128, 128), Λ(),
+            Linear(64, latent_size), Λ()
+        )
+        self.dec = Sequential( # decoder
+            Linear(latent_size, 64), Λ(),
+            # Linear(128, 128), Λ(),
+            Linear(64, output_size*output_size), Λ(),
+            Reshape(-1, output_size, output_size)
+        )
+    def forward(self, x): 
+        x = self.enc(x)
+        x = x/torch.norm(x, dim=-1, keepdim=True) # normalize
+        x = self.dec(x)
+        return x
 
 ######################################################################################################
 # math functions
