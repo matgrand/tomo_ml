@@ -15,7 +15,9 @@ import seaborn as sns
 from tqdm import tqdm
 sns.set_style("darkgrid")  # adds seaborn style to charts, eg. grid
 plt.style.use("dark_background")  # inverts colors to dark theme
-plt.rcParams['font.family'] = 'monospace'
+plt.rcParams['font.family'] = 'monospace' 
+plt.rcParams['axes.grid'] = True
+plt.rcParams['image.cmap'] = 'inferno' #'plasma'
 np.set_printoptions(precision=3) # set precision for printing numpy arrays
 import os
 import warnings; warnings.filterwarnings("ignore")
