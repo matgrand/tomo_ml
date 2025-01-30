@@ -17,7 +17,9 @@ sns.set_style("darkgrid")  # adds seaborn style to charts, eg. grid
 plt.style.use("dark_background")  # inverts colors to dark theme
 plt.rcParams['font.family'] = 'monospace' 
 plt.rcParams['axes.grid'] = True
-plt.rcParams['image.cmap'] = 'inferno' #'plasma'
+CMAP_NAME = "inferno" #'plasma' # colormap
+CMAP = plt.get_cmap(CMAP_NAME)
+plt.rcParams['image.cmap'] = CMAP_NAME
 np.set_printoptions(precision=3) # set precision for printing numpy arrays
 import os
 import warnings; warnings.filterwarnings("ignore")
