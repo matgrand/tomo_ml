@@ -17,6 +17,7 @@ sns.set_style("darkgrid")  # adds seaborn style to charts, eg. grid
 plt.style.use("dark_background")  # inverts colors to dark theme
 plt.rcParams['font.family'] = 'monospace' 
 plt.rcParams['axes.grid'] = True
+plt.rcParams['grid.alpha'] = 0.2
 CMAP_NAME = "inferno" #'plasma' # colormap
 CMAP = plt.get_cmap(CMAP_NAME)
 plt.rcParams['image.cmap'] = CMAP_NAME
@@ -51,7 +52,7 @@ torch.manual_seed(42)
 ######################################################################################################
 # dataset
 class SXRDataset(Dataset):
-    def __init__(self, n, gs, real=False, noise_level:float=0.0, random_remove:int=0, calc_sxr=False, rescale=True):
+    def __init__(self, n, gs=GSIZE, real=False, noise_level:float=0.0, random_remove:int=0, calc_sxr=False, rescale=True):
         ''' n: number of samples, gs: grid_size, real: real or simulated data, 
             noise_level: noise level, random_remove: random remove of sxrs, 
             rescale: rescale the emissivities and sxr so that max em == 1, 
