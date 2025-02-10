@@ -10,9 +10,11 @@ from numpy import cos, sin, sqrt, hypot, arctan2, abs, log
 from numpy.random import rand, randint, randn, uniform
 from numpy.linalg import norm, inv
 π = np.pi
+from tqdm import tqdm
+
+# plotting
 import matplotlib.pyplot as plt
 import seaborn as sns
-from tqdm import tqdm
 sns.set_style("darkgrid")  # adds seaborn style to charts, eg. grid
 plt.style.use("dark_background")  # inverts colors to dark theme
 plt.rcParams['font.family'] = 'monospace' 
@@ -22,6 +24,7 @@ CMAP_NAME = "inferno" #'plasma' # colormap
 CMAP = plt.get_cmap(CMAP_NAME)
 plt.rcParams['image.cmap'] = CMAP_NAME
 np.set_printoptions(precision=3) # set precision for printing numpy arrays
+
 import os
 import warnings; warnings.filterwarnings("ignore")
 try: 
@@ -29,8 +32,8 @@ try:
     DEV = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") # nvidia
     HAS_SCREEN = False # for plotting or saving images
 except:
-    DEV = torch.device("mps") # apple silicon
     JOBID = "local"
+    DEV = torch.device("mps") # apple silicon
     HAS_SCREEN = True
 os.makedirs(f"mg_data/{JOBID}", exist_ok=True)
 
