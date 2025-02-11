@@ -84,6 +84,8 @@ class SXRDataset(Dataset):
         self.input_size = self.sxr.shape[-1]
         assert self.sxr.shape[-1] == 68, f"wrong sxr shape: {self.sxr.shape}"
         self.RR, self.ZZ = ds['RR'], ds['ZZ'] # grid coordinates
+        try: self.bessel_coefss = ds['bessel_coefss'] # bessel coefficients (not always available)
+        except: self.bessel_coefss = None, print("Warning: no bessel_coefss")
         assert len(self.em) == len(self.sxr), f'length mismatch: {len(self.em)} vs {len(self.sxr)}'
     def __len__(self): return len(self.sxr)
     def __getitem__(self, idx):
