@@ -14,12 +14,7 @@ from tqdm import tqdm
 
 # plotting
 import matplotlib.pyplot as plt
-import seaborn as sns
-sns.set_style("darkgrid")  # adds seaborn style to charts, eg. grid
 plt.style.use("dark_background")  # inverts colors to dark theme
-plt.rcParams['font.family'] = 'monospace' 
-plt.rcParams['axes.grid'] = True
-plt.rcParams['grid.alpha'] = 0.2
 CMAP_NAME = "inferno" #'plasma' # colormap
 CMAP = plt.get_cmap(CMAP_NAME)
 plt.rcParams['image.cmap'] = CMAP_NAME
