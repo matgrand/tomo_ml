@@ -14,7 +14,6 @@ from tqdm import tqdm
 
 # plotting
 import matplotlib.pyplot as plt
-plt.style.use("dark_background")  # inverts colors to dark theme
 CMAP_NAME = "inferno" #'plasma' # colormap
 CMAP = plt.get_cmap(CMAP_NAME)
 plt.rcParams['image.cmap'] = CMAP_NAME
